@@ -18,16 +18,26 @@ const MINUS = 3
 const MUL = 4
 const DIV = 5
 
+//////////////////////////////////////////////////////////////////////////////
+//// Structures
+//////////////////////////////////////////////////////////////////////////////
+
 type token struct {
 	tType int // because 'type' is reserved word in Go
 	value string
 }
 
-type interpreter struct {
+type lexer struct {
 	text []string
 	pos int
-	currentToken *token
 	currentChar string
+}
+
+type interpreter struct {
+	currentToken *token
+	lexer *lexer
+	// Names of token types, for descriptive error/debug messages
+	ttNames map[int]string
 }
 
 // Notes here
@@ -40,18 +50,98 @@ func main() {
 		if len(text) == 0 {
 			continue
 		}
-		i := interpreter{text, NONE, nil, text[0]}
+		lexer := lexer{text, 0, text[0]}
+		i := interpreter{nil, &lexer, GetTokenTypeNames()}
 		fmt.Println(i.Expr())
 	}
 }
 
-//// Interpreter methods
+func GetTokenTypeNames() map[int]string {
+	ttNames := make(map[int]string)
+	ttNames[NONE]    = "NONE"
+	ttNames[INTEGER] = "INTEGER"
+	ttNames[PLUS]    = "PLUS"
+	ttNames[MINUS]   = "MINUS"
+	ttNames[MUL]     = "MUL"
+	ttNames[DIV]     = "DIV"
+	return ttNames
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//// Lexer
+//////////////////////////////////////////////////////////////////////////////
+
+// GetNextToken serves as a lexer
+// Panics if finds unrecognized token
+// Returns empty token when reaches end of text
+func (l *lexer) GetNextToken() token {
+	//fmt.Printf("Current char: %s\n", i.currentChar)
+	for l.currentChar != "" { // while there are still char in the input
+		char := l.text[l.pos]
+		if char == " " { // space, skip it
+			l.Advance()
+			continue
+		}
+		if IsDigit(char) {
+			t := token{INTEGER, l.Integer()}
+			return t
+		}
+		if char == "+" {
+			t := token{PLUS, "+"}
+			l.Advance()
+			return t
+		}
+		if char == "-" {
+			t := token{MINUS, "-"}
+			l.Advance()
+			return t
+		}
+		if char == "*" {
+			t := token{MUL, "*"}
+			l.Advance()
+			return t
+		}
+		if char == "/" {
+			t := token{DIV, "/"}
+			l.Advance()
+			return t
+		}
+		panic(fmt.Sprintf("Unknown token: %s at position %d", char, l.pos))
+	}
+
+	return token{NONE, ""}
+}
+
+// Advance moves pointer to next input position
+func (l *lexer) Advance() {
+	l.pos++
+	if l.pos > len(l.text)-1 {
+		l.currentChar = ""
+	} else {
+		l.currentChar = l.text[l.pos]
+	}
+}
+
+// Integer extracts integer value from input by concatenating subsequent digits
+// Returns integer-like string
+func (l *lexer) Integer() string {
+	var result []string
+	for IsDigit(l.currentChar) {
+		result = append(result, l.currentChar)
+		l.Advance()
+	}
+	return strings.Join(result, "")
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//// Interpreter
+//////////////////////////////////////////////////////////////////////////////
 
 // Expr evaluates expression
 // Panics if try to divide by 0
 // Returns result of calculation
 func (i *interpreter) Expr() int {
-	t := i.GetNextToken()
+	t := i.lexer.GetNextToken()
 	i.currentToken = &t
 
 	var result int
@@ -72,47 +162,6 @@ func (i *interpreter) Expr() int {
 	return result
 }
 
-// GetNextToken serves as a lexer
-// Panics if finds unrecognized token
-// Returns empty token when reaches end of text
-func (i *interpreter) GetNextToken() token {
-	//fmt.Printf("Current char: %s\n", i.currentChar)
-	for i.currentChar != "" { // while there are still char in the input
-		char := i.text[i.pos]
-		if char == " " { // space, skip it
-			i.Advance()
-			continue
-		}
-		if IsDigit(char) {
-			t := token{INTEGER, i.Integer()}
-			return t
-		}
-		if char == "+" {
-			t := token{PLUS, "+"}
-			i.Advance()
-			return t
-		}
-		if char == "-" {
-			t := token{MINUS, "-"}
-			i.Advance()
-			return t
-		}
-		if char == "*" {
-			t := token{MUL, "*"}
-			i.Advance()
-			return t
-		}
-		if char == "/" {
-			t := token{DIV, "/"}
-			i.Advance()
-			return t
-		}
-		panic(fmt.Sprintf("Unknown token: %s at position %d", char, i.pos))
-	}
-
-	return token{NONE, ""}
-}
-
 func (i *interpreter) Term() int {
 	t := i.currentToken
 	i.Eat(INTEGER)
@@ -124,37 +173,18 @@ func (i *interpreter) Term() int {
 func (i *interpreter) Eat(tokenType int) {
 	if i.currentToken.tType != tokenType {
 		panic(fmt.Sprintf(
-			"Token type mismatched, expected %d, got %d (value: %s)",
-			tokenType,
-			i.currentToken.tType,
+			"Token type mismatched, expected %s, got %s (value: %s)",
+			i.ttNames[tokenType],
+			i.ttNames[i.currentToken.tType],
 			i.currentToken.value))
 	}
-	t := i.GetNextToken()
+	t := i.lexer.GetNextToken()
 	i.currentToken = &t
 }
 
-// Advance moves pointer to next input position
-func (i *interpreter) Advance() {
-	i.pos++
-	if i.pos > len(i.text)-1 {
-		i.currentChar = ""
-	} else {
-		i.currentChar = i.text[i.pos]
-	}
-}
-
-// Integer extracts integer value from input by concatenating subsequent digits
-// Returns integer-like string
-func (i *interpreter) Integer() string {
-	var result []string
-	for IsDigit(i.currentChar) {
-		result = append(result, i.currentChar)
-		i.Advance()
-	}
-	return strings.Join(result, "")
-}
-
-//// Token methods
+//////////////////////////////////////////////////////////////////////////////
+//// Token
+//////////////////////////////////////////////////////////////////////////////
 
 // Int converts token of type INTEGER to int value.
 // Panics if called on non-INTEGER token.
@@ -166,11 +196,9 @@ func (t *token) Int() int {
 	return r
 }
 
-func (t *token) Addition() bool {
-	return t.tType == PLUS || t.tType == MINUS
-}
-
+//////////////////////////////////////////////////////////////////////////////
 //// Other functions
+//////////////////////////////////////////////////////////////////////////////
 
 func IsDigit(char string) bool {
 	isDigit, _ := regexp.MatchString("^[0-9]$", char)
