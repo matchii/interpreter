@@ -17,6 +17,8 @@ const PLUS = 2
 const MINUS = 3
 const MUL = 4
 const DIV = 5
+const LPAREN = 6
+const RPAREN = 7
 
 //////////////////////////////////////////////////////////////////////////////
 //// Structures
@@ -64,6 +66,8 @@ func GetTokenTypeNames() map[int]string {
 	ttNames[MINUS]   = "MINUS"
 	ttNames[MUL]     = "MUL"
 	ttNames[DIV]     = "DIV"
+	ttNames[LPAREN]  = "LPAREN"
+	ttNames[RPAREN]  = "RPAREN"
 	return ttNames
 }
 
@@ -106,6 +110,16 @@ func (l *lexer) GetNextToken() token {
 			l.Advance()
 			return t
 		}
+		if char == "(" {
+			t := token{LPAREN, "("}
+			l.Advance()
+			return t
+		}
+		if char == ")" {
+			t := token{RPAREN, ")"}
+			l.Advance()
+			return t
+		}
 		panic(fmt.Sprintf("Unknown token: %s at position %d", char, l.pos))
 	}
 
@@ -142,8 +156,10 @@ func (l *lexer) Integer() string {
 // Panics if try to divide by 0
 // Returns result of calculation
 func (i *interpreter) Expr() int {
-	t := i.lexer.GetNextToken()
-	i.currentToken = &t
+	if (i.currentToken == nil) {
+    	t := i.lexer.GetNextToken()
+    	i.currentToken = &t
+	}
 
 	var result int
 	result = i.Term()
@@ -157,8 +173,6 @@ func (i *interpreter) Expr() int {
 			result = result - i.Term()
 		}
 	}
-
-	i.Eat(NONE)
 
 	return result
 }
@@ -183,11 +197,19 @@ func (i *interpreter) Term() int {
 }
 
 // Factor
-// factor : INTEGER
+// factor : INTEGER | LPAREN expr RPAREN
 func (i *interpreter) Factor() int {
 	t := i.currentToken
-	i.Eat(INTEGER)
-	return t.Int()
+	if t.tType == INTEGER {
+		i.Eat(INTEGER)
+		return t.Int()
+	} else if t.tType == LPAREN {
+		i.Eat(LPAREN)
+		expr := i.Expr()
+		i.Eat(RPAREN)
+		return expr
+	}
+	panic(fmt.Sprintf("Found token %s where factor (INTEGER or LPAREN) expected", t.value))
 }
 
 // Eat moves to new current token
