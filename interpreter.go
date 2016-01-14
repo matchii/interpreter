@@ -138,6 +138,7 @@ func (l *lexer) Integer() string {
 //////////////////////////////////////////////////////////////////////////////
 
 // Expr evaluates expression
+// expr : term ((PLUS | MINUS) term)*
 // Panics if try to divide by 0
 // Returns result of calculation
 func (i *interpreter) Expr() int {
@@ -162,7 +163,28 @@ func (i *interpreter) Expr() int {
 	return result
 }
 
+// Term
+// term : factor ((MUL | DIV) factor)*
 func (i *interpreter) Term() int {
+	var result int
+	result = i.Factor()
+
+	for i.currentToken.tType == MUL || i.currentToken.tType == DIV {
+		if i.currentToken.tType == MUL {
+			i.Eat(MUL)
+			result = result * i.Factor()
+		} else if i.currentToken.tType == DIV {
+			i.Eat(DIV)
+			result = result / i.Factor()
+		}
+	}
+
+	return result
+}
+
+// Factor
+// factor : INTEGER
+func (i *interpreter) Factor() int {
 	t := i.currentToken
 	i.Eat(INTEGER)
 	return t.Int()
