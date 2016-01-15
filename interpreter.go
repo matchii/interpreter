@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+// FIXME I don't like how syntax errors are handled and displayed
+
 type interpreter struct {
 	currentToken *token
 	lexer *lexer
@@ -16,6 +18,11 @@ type interpreter struct {
 // Panics if try to divide by 0
 // Returns result of calculation
 func (i *interpreter) Expr() int {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Syntax error:", r)
+		}
+	}()
 	if (i.currentToken == nil) {
     	t := i.lexer.GetNextToken()
     	i.currentToken = &t
@@ -69,8 +76,11 @@ func (i *interpreter) Factor() int {
 		i.Eat(RPAREN)
 		return expr
 	}
-	// TODO use defer to make this non-terminating error
-	panic(fmt.Sprintf("Found token %s where factor (INTEGER or LPAREN) expected", t.value))
+	panic(fmt.Sprintf(
+		"Token '%s' (type %s) found at position %d when factor (INTEGER or LPAREN) expected",
+		t.value,
+		i.ttNames[t.tType],
+		i.lexer.pos-1))
 }
 
 // Eat moves to new current token
@@ -78,10 +88,11 @@ func (i *interpreter) Factor() int {
 func (i *interpreter) Eat(tokenType int) {
 	if i.currentToken.tType != tokenType {
 		panic(fmt.Sprintf(
-			"Token type mismatched, expected %s, got %s (value: %s)",
-			i.ttNames[tokenType],
+			"Token of type %s ('%s') found at position %d when %s expected",
 			i.ttNames[i.currentToken.tType],
-			i.currentToken.value))
+			i.currentToken.value,
+			i.lexer.pos,
+			i.ttNames[tokenType]))
 	}
 	t := i.lexer.GetNextToken()
 	i.currentToken = &t
