@@ -11,7 +11,12 @@ type lexer struct {
 	currentChar string
 }
 
-// GetNextToken serves as a lexer
+// NewLexer serves as pseudo-constructor of lexer structure
+func NewLexer(text []string) lexer {
+	return lexer{text, 0, text[0]}
+}
+
+// GetNextToken
 // Panics if finds unrecognized token
 // Returns empty token when reaches end of text
 func (l *lexer) GetNextToken() token {

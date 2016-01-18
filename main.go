@@ -32,8 +32,8 @@ func main() {
 		if len(text) == 0 {
 			continue
 		}
-		lexer := lexer{text, 0, text[0]}
-		i := interpreter{nil, &lexer, GetTokenTypeNames()}
+		lxr := NewLexer(text)
+		i := interpreter{nil, &lxr, GetTokenTypeNames()}
 		fmt.Println(i.Expr())
 	}
 }
