@@ -33,8 +33,8 @@ func main() {
 			continue
 		}
 		lxr := NewLexer(text)
-		i := interpreter{nil, &lxr, GetTokenTypeNames()}
-		fmt.Println(i.Expr())
+		p := parser{nil, &lxr, GetTokenTypeNames()}
+		fmt.Println(p.Expr())
 	}
 }
 
