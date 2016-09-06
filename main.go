@@ -15,14 +15,16 @@ import (
 // TODO read about godoc
 
 // Token types
-const NONE = 0
-const INTEGER = 1
-const PLUS = 2
-const MINUS = 3
-const MUL = 4
-const DIV = 5
-const LPAREN = 6
-const RPAREN = 7
+const (
+	NONE = 0
+	INTEGER = 1
+	PLUS = 2
+	MINUS = 3
+	MUL = 4
+	DIV = 5
+	LPAREN = 6
+	RPAREN = 7
+)
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
@@ -34,8 +36,14 @@ func main() {
 		}
 		lxr := NewLexer(text)
 		p := parser{nil, &lxr, GetTokenTypeNames()}
+		result, parseError := p.Parse()
+		fmt.Println("result:", result, "parseError:", parseError)
+		if parseError != nil {
+			fmt.Println(parseError)
+			continue
+		}
 		i := interpreter{}
-		fmt.Println(i.Visit(p.Expr()))
+		fmt.Println(i.Visit(result))
 	}
 }
 

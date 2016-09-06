@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -13,8 +14,15 @@ type parser struct {
 	ttNames map[int]string
 }
 
-func (p *parser) Parse() node {
-	return p.Expr()
+func (p *parser) Parse() (n node, e error) {
+	var parseError error
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Parse error")
+			parseError = errors.New(fmt.Sprintf("Syntax error:", r))
+		}
+	}()
+	return p.Expr(), parseError
 }
 
 // Expr evaluates expression
@@ -22,11 +30,6 @@ func (p *parser) Parse() node {
 // Panics if try to divide by 0
 // Returns result of calculation
 func (p *parser) Expr() node {
-	defer func() { // TODO move to Parse()
-		if r := recover(); r != nil {
-			fmt.Println("Syntax error:", r)
-		}
-	}()
 	if (p.currentToken == nil) {
     	t := p.lexer.GetNextToken()
     	p.currentToken = &t
